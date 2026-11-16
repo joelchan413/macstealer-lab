@@ -1,8 +1,7 @@
 # MacStealer Mininet-WiFi Lab: Overview
 
 Setup and operating instructions are in [instructions.md](instructions.md).
-The experimental design is documented in
-[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md), and the completed dataset is under
+The complete dataset is under
 [results/analysis](results/analysis/README.md).
 
 ## Executive summary
