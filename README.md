@@ -1,4 +1,4 @@
-# MacStealer Mininet-WiFi Lab: Team Overview
+# MacStealer Mininet-WiFi Lab: Overview
 
 Setup and operating instructions are in [instructions.md](instructions.md).
 The experimental design is documented in
@@ -77,22 +77,6 @@ Upstream project: <https://github.com/vanhoefm/macstealer>
 The victim and attacker used different PSKs on the same SSID. During the
 attack, the attacker reconnected using the victim's MAC address but retained
 the attacker's valid credential identity.
-
-## Demonstration procedure
-
-The normal demonstration used the upstream attack rather than the measurement
-wrapper. The recording sequence was:
-
-1. Show that the environment is isolated and identify the pinned software
-   versions.
-2. Show the WPA2 multi-PSK configuration and client isolation setting.
-3. Verify that direct client-to-client traffic is blocked.
-4. Connect as the victim and trigger server traffic.
-5. Disconnect the victim and reconnect under its MAC address using the
-   attacker's PSK.
-6. Show MacStealer reporting that traffic intended for the victim was received
-   by the attacker.
-7. Preserve the terminal output and packet captures as supporting evidence.
 
 ## Measurement design
 
