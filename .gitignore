@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.tmp
+
+# Local virtual environments and generated raw experiment runs.
+.venv/
+venv/
+results-full/
+profile-smoke/
+recording-artifacts/
+smoke-*/
+
+# Keep the curated processed dataset under results/analysis.
