@@ -87,6 +87,22 @@ def wait_for_background_links(stations, timeout: float = 35.0) -> tuple[int, lis
     return len(connected), missing
 
 
+def wait_for_background_receivers(
+    paths: list[Path], timeout: float = 5.0, poll_interval: float = 0.1
+) -> list[int]:
+    """Wait until every background sink has received at least one datagram."""
+    deadline = time.monotonic() + timeout
+    counts = [0 for _path in paths]
+    while time.monotonic() < deadline:
+        counts = [
+            int(read_json_if_present(path).get("packets", 0)) for path in paths
+        ]
+        if counts and all(count > 0 for count in counts):
+            break
+        time.sleep(poll_interval)
+    return counts
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--macstealer", type=Path, required=True)
@@ -358,17 +374,41 @@ def main() -> int:
 
         background_prefix = "10.77.10" if separated else "10.77.0"
         background_ips = []
+        background_macs = []
         for index, station in enumerate(backgrounds, start=1):
             station_ip = f"{background_prefix}.{100 + index}"
+            station_interface = f"{station.name}-wlan0"
+            station_mac = station.cmd(
+                f"cat /sys/class/net/{station_interface}/address"
+            ).strip()
+            if not station_mac:
+                raise RuntimeError(
+                    f"could not determine MAC address for {station.name}"
+                )
             background_ips.append(station_ip)
+            background_macs.append(station_mac)
             station.cmd(
-                f"ip address replace {station_ip}/24 dev {station.name}-wlan0"
+                f"ip address replace {station_ip}/24 dev {station_interface}"
             )
             station.cmd(
                 f"ip route replace default via {victim_server_ip} "
-                f"dev {station.name}-wlan0"
+                f"dev {station_interface}"
             )
+            # Static station addresses are outside dnsmasq's leases. Seed the
+            # server's neighbor table so a missed ARP exchange cannot silently
+            # turn an offered 20 Mbit/s stream into zero delivered traffic.
+            srv.cmd(
+                f"ip neigh replace {station_ip} lladdr {station_mac} "
+                "nud permanent dev srv-eth0"
+            )
+            # Emit one station-originated exchange to teach the virtual AP and
+            # bridge which wireless port owns this source MAC.
+            station.cmd(f"ping -c 1 -W 1 {victim_server_ip}")
         result["background_ips"] = background_ips
+        result["background_macs"] = background_macs
+        result["background_server_neighbors"] = srv.cmd(
+            "ip neigh show dev srv-eth0"
+        ).splitlines()
 
         victim_mac = lab.cmd("cat /sys/class/net/lab-wlan0/address").strip()
         result["victim_mac"] = victim_mac
@@ -513,6 +553,27 @@ def main() -> int:
             sender_start = read_json_if_present(background_sender_summary)
             if int(sender_start.get("packets", 0)) <= 0:
                 raise RuntimeError("background sender produced no packets during startup")
+            receiver_counts = wait_for_background_receivers(
+                background_sink_paths
+            )
+            result["background_preflight_receiver_packets"] = {
+                station.name: count
+                for station, count in zip(backgrounds, receiver_counts)
+            }
+            result["background_preflight_packets_received"] = sum(receiver_counts)
+            if not receiver_counts or not all(
+                count > 0 for count in receiver_counts
+            ):
+                result["failure_class"] = "background_load_failure"
+                missing_receivers = [
+                    station.name
+                    for station, count in zip(backgrounds, receiver_counts)
+                    if count <= 0
+                ]
+                raise RuntimeError(
+                    "background receiver preflight got no packets at: "
+                    + ", ".join(missing_receivers)
+                )
 
         if shutil.which("tcpdump"):
             server_capture = srv.popen(

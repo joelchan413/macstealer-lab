@@ -6,6 +6,7 @@ from analyze_results import summarize, wilson_interval
 from background_traffic import metrics
 from lab_common import PROFILES, STUDY_PROFILES, render_client_config
 from run_experiments import read_result
+from single_trial import wait_for_background_receivers
 from traffic_generator import build_payload
 
 
@@ -67,6 +68,17 @@ class HarnessTests(unittest.TestCase):
         )
         self.assertGreater(snapshot["achieved_mbps"], 0)
         self.assertEqual(snapshot["target_mbps"], 20.0)
+
+    def test_background_receiver_preflight_reads_each_sink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [
+                Path(directory) / "bg001.json",
+                Path(directory) / "bg002.json",
+            ]
+            paths[0].write_text('{"packets": 12}\n')
+            paths[1].write_text('{"packets": 9}\n')
+            counts = wait_for_background_receivers(paths, timeout=0.01)
+        self.assertEqual(counts, [12, 9])
 
     def test_wilson_interval_contains_observed_rate(self):
         low, high = wilson_interval(15, 30)

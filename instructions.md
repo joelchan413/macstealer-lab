@@ -165,6 +165,10 @@ The sender and every receiver write JSON counters so the trial is invalid if
 the background stream did not actually run. The offered sender rate must reach
 at least 90% of its 20 Mbit/s target; delivered background rate and delivery
 ratio are recorded separately rather than used as a validity threshold.
+The harness also seeds the server's neighbor table for the statically addressed
+background stations and verifies that every receiver gets packets before the
+attack measurement begins. A loaded trial is rejected immediately if this
+receiver preflight fails.
 
 The portable VLAN negative control uses two BSSes with the same SSID. The
 victim is pinned to the BSS backed by `10.77.10.0/24`; the attacker is pinned
