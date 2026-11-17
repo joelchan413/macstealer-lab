@@ -266,7 +266,7 @@ controlled congestion, WMM under congestion, and a forwarding-separation
 negative control.
 
 Use `N=5` for every cell so both loaded profiles have four background traffic
-receivers:
+senders:
 
 | Profile | Background load | WMM | Forwarding domain | Expected outcome |
 |---|---:|---:|---|---|
@@ -275,9 +275,12 @@ receivers:
 | `wmm_disabled_load20` | 20 Mbit/s | Off | Same BSS/domain | Potentially different loss and latency |
 | `vlan_separated` | 0 Mbit/s | On | Separate pinned BSS domains | 0% success and interception |
 
-The 20 Mbit/s stream is aggregate downlink traffic from the wired server,
-round-robin across the four background stations. Sender and receiver counters
-must both be non-zero or the trial is an infrastructure failure.
+The 20 Mbit/s stream is aggregate uplink traffic divided evenly across the four
+background stations, with the wired server as the receiver. Aggregate sender
+and server receiver counters must both be non-zero or the trial is an
+infrastructure failure. This direction avoids a Mininet-WiFi/OVS limitation
+that dropped wired-to-wireless unicast for manually associated background
+radios despite correct permanent neighbor entries.
 
 The VLAN profile uses the same SSID on both BSSes. The victim credential is
 pinned to a BSS backed by `10.77.10.0/24`; the attacker credential is pinned to

@@ -70,6 +70,7 @@ def write_trial_table(path: Path, trials: list[dict[str, Any]]):
         "network_mode",
         "vlan_separated",
         "associated_clients",
+        "background_direction",
         "background_load_target_mbps",
         "background_load_actual_mbps",
         "background_packets_sent",
@@ -135,6 +136,14 @@ def summarize(trials: list[dict[str, Any]]):
             {
                 "profile": profile,
                 "associated_clients": clients,
+                "background_direction": next(
+                    (
+                        trial.get("background_direction")
+                        for trial in group
+                        if trial.get("background_direction")
+                    ),
+                    None,
+                ),
                 "attempted_trials": len(group),
                 "valid_trials": len(valid),
                 "infrastructure_failures": len(group) - len(valid),

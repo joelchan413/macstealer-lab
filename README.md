@@ -261,7 +261,7 @@ all-positive ceiling in the original matrix:
 | Profile | Configuration | Expected result |
 |---|---|---|
 | `baseline_idle` | Baseline with idle background stations | Near-total success and interception |
-| `baseline_load20` | Baseline under measured 20 Mbit/s downlink load | High success with potentially lower or more variable volume |
+| `baseline_load20` | Baseline under measured 20 Mbit/s aggregate uplink load | High success with potentially lower or more variable volume |
 | `wmm_disabled_load20` | WMM disabled under the same load | Potentially different loss and latency |
 | `vlan_separated` | Victim and attacker on isolated BSS forwarding domains | No interception |
 

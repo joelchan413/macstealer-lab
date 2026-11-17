@@ -155,20 +155,25 @@ The runner now defaults to a focused follow-up study at `N=5`:
 | Profile | Configuration | Expected result |
 |---|---|---|
 | `baseline_idle` | Baseline AP with four idle background stations | High success and interception |
-| `baseline_load20` | Baseline plus 20 Mbit/s aggregate downlink load | High success, potentially lower or more variable volume |
+| `baseline_load20` | Baseline plus 20 Mbit/s aggregate uplink load | High success, potentially lower or more variable volume |
 | `wmm_disabled_load20` | WMM disabled under the same 20 Mbit/s load | Potentially different loss and latency |
 | `vlan_separated` | Victim and attacker pinned to isolated BSS forwarding domains and DHCP subnets | Valid `secure_negative` with no interception |
 
-The two loaded profiles divide a measured 20 Mbit/s offered stream across all
-background stations. They therefore require at least two associated clients.
-The sender and every receiver write JSON counters so the trial is invalid if
-the background stream did not actually run. The offered sender rate must reach
-at least 90% of its 20 Mbit/s target; delivered background rate and delivery
-ratio are recorded separately rather than used as a validity threshold.
-The harness also seeds the server's neighbor table for the statically addressed
-background stations and verifies that every receiver gets packets before the
+The two loaded profiles divide a measured 20 Mbit/s offered uplink stream
+across all background stations, with the server acting as the receiver. They
+therefore require at least two associated clients. Each sender and the receiver
+write JSON counters so the trial is invalid if the background stream did not
+actually run. The aggregate offered sender rate must reach at least 90% of its
+20 Mbit/s target; delivered background rate and delivery ratio are recorded
+separately rather than used as a validity threshold. The harness seeds both
+sides' neighbor tables and verifies that the server receives packets before the
 attack measurement begins. A loaded trial is rejected immediately if this
 receiver preflight fails.
+
+The uplink direction is deliberate: this Mininet-WiFi/OVS combination dropped
+wired-to-wireless unicast for the manually associated background radios even
+with correct permanent neighbor entries. Uplink traffic still consumes the
+emulated Wi-Fi medium, creates contention, and exercises the WMM configuration.
 
 The portable VLAN negative control uses two BSSes with the same SSID. The
 victim is pinned to the BSS backed by `10.77.10.0/24`; the attacker is pinned

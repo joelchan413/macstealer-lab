@@ -124,6 +124,7 @@ def main() -> int:
 
     profile = PROFILES[args.profile]
     background_load_mbps = float(profile.get("background_load_mbps", 0.0))
+    background_direction = profile.get("background_direction")
     separated = profile.get("network_mode") == "separate_bss_vlan"
     victim_server_ip = VLAN_VICTIM_SERVER_IP if separated else SERVER_IP
     victim_ip = VLAN_VICTIM_IP if separated else VICTIM_IP
@@ -183,6 +184,7 @@ def main() -> int:
             "payload_bytes": args.payload_bytes,
             "observation_seconds": args.observation_seconds,
             "background_load_mbps": background_load_mbps,
+            "background_direction": background_direction,
             "network_mode": profile.get("network_mode", "same_bss"),
             "victim_server_ip": victim_server_ip,
             "victim_ip": victim_ip,
@@ -207,6 +209,7 @@ def main() -> int:
         "payload_bytes": args.payload_bytes,
         "observation_seconds": args.observation_seconds,
         "background_load_target_mbps": background_load_mbps,
+        "background_direction": background_direction,
         "background_load_ok": background_load_mbps == 0,
         "network_mode": profile.get("network_mode", "same_bss"),
         "vlan_separated": separated,
@@ -230,7 +233,8 @@ def main() -> int:
                 str(output / "hostapd-attacker.log") if separated else None
             ),
             "traffic_generator_log": str(output / "traffic-generator.log"),
-            "background_sender_summary": str(output / "background-sender.json"),
+            "background_sender_summaries": [],
+            "background_sink_summary": None,
         },
     }
 
@@ -375,6 +379,13 @@ def main() -> int:
         background_prefix = "10.77.10" if separated else "10.77.0"
         background_ips = []
         background_macs = []
+        victim_server_mac = srv.cmd(
+            "cat /sys/class/net/srv-eth0/address"
+        ).strip()
+        if not victim_server_mac:
+            raise RuntimeError("could not determine victim server MAC address")
+        result["victim_server_mac"] = victim_server_mac
+        background_station_neighbors = {}
         for index, station in enumerate(backgrounds, start=1):
             station_ip = f"{background_prefix}.{100 + index}"
             station_interface = f"{station.name}-wlan0"
@@ -401,14 +412,22 @@ def main() -> int:
                 f"ip neigh replace {station_ip} lladdr {station_mac} "
                 "nud permanent dev srv-eth0"
             )
+            station.cmd(
+                f"ip neigh replace {victim_server_ip} lladdr {victim_server_mac} "
+                f"nud permanent dev {station_interface}"
+            )
             # Emit one station-originated exchange to teach the virtual AP and
             # bridge which wireless port owns this source MAC.
             station.cmd(f"ping -c 1 -W 1 {victim_server_ip}")
+            background_station_neighbors[station.name] = station.cmd(
+                f"ip neigh show dev {station_interface}"
+            ).splitlines()
         result["background_ips"] = background_ips
         result["background_macs"] = background_macs
         result["background_server_neighbors"] = srv.cmd(
             "ip neigh show dev srv-eth0"
         ).splitlines()
+        result["background_station_neighbors"] = background_station_neighbors
 
         victim_mac = lab.cmd("cat /sys/class/net/lab-wlan0/address").strip()
         result["victim_mac"] = victim_mac
@@ -484,95 +503,120 @@ def main() -> int:
         ):
             raise RuntimeError("dnsmasq or the local TCP listener exited during startup")
 
-        background_sender = None
+        background_senders = []
+        background_sender_paths = []
         background_sinks = []
         background_sink_paths = []
-        background_sender_summary = output / "background-sender.json"
         if background_load_mbps > 0:
-            for station, station_ip in zip(backgrounds, background_ips):
-                sink_summary = output / f"{station.name}-background-sink.json"
-                sink_log = (output / f"{station.name}-background-sink.log").open("w")
-                log_handles.append(sink_log)
-                sink = station.popen(
+            if background_direction != "uplink_to_server":
+                raise RuntimeError(
+                    f"unsupported background direction: {background_direction}"
+                )
+
+            sink_summary = output / "background-server-sink.json"
+            sink_log = (output / "background-server-sink.log").open("w")
+            log_handles.append(sink_log)
+            sink = srv.popen(
+                [
+                    "python3",
+                    str(background_script),
+                    "sink",
+                    "--bind",
+                    victim_server_ip,
+                    "--port",
+                    str(BACKGROUND_PORT),
+                    "--duration",
+                    "120",
+                    "--output",
+                    str(sink_summary),
+                ],
+                stdout=sink_log,
+                stderr=subprocess.STDOUT,
+            )
+            processes.append(sink)
+            background_sinks.append(sink)
+            background_sink_paths.append(sink_summary)
+
+            per_station_mbps = background_load_mbps / len(backgrounds)
+            for station in backgrounds:
+                sender_summary = output / f"{station.name}-background-sender.json"
+                sender_log = (
+                    output / f"{station.name}-background-sender.log"
+                ).open("w")
+                log_handles.append(sender_log)
+                sender = station.popen(
                     [
                         "python3",
                         str(background_script),
-                        "sink",
-                        "--bind",
-                        station_ip,
+                        "sender",
+                        "--target",
+                        victim_server_ip,
                         "--port",
                         str(BACKGROUND_PORT),
+                        "--aggregate-mbps",
+                        str(per_station_mbps),
+                        "--payload-bytes",
+                        str(args.payload_bytes),
                         "--duration",
                         "120",
                         "--output",
-                        str(sink_summary),
+                        str(sender_summary),
                     ],
-                    stdout=sink_log,
+                    stdout=sender_log,
                     stderr=subprocess.STDOUT,
                 )
-                processes.append(sink)
-                background_sinks.append(sink)
-                background_sink_paths.append(sink_summary)
+                processes.append(sender)
+                background_senders.append(sender)
+                background_sender_paths.append(sender_summary)
 
-            sender_log = (output / "background-sender.log").open("w")
-            log_handles.append(sender_log)
-            sender_command = [
-                "python3",
-                str(background_script),
-                "sender",
-                "--port",
-                str(BACKGROUND_PORT),
-                "--aggregate-mbps",
-                str(background_load_mbps),
-                "--payload-bytes",
-                str(args.payload_bytes),
-                "--duration",
-                "120",
-                "--output",
-                str(background_sender_summary),
+            result["artifacts"]["background_sender_summaries"] = [
+                str(path) for path in background_sender_paths
             ]
-            for station_ip in background_ips:
-                sender_command.extend(["--target", station_ip])
-            background_sender = srv.popen(
-                sender_command,
-                stdout=sender_log,
-                stderr=subprocess.STDOUT,
+            result["artifacts"]["background_sink_summary"] = str(
+                sink_summary
             )
-            processes.append(background_sender)
             time.sleep(1.0)
-            failed_sinks = [
+            failed_senders = [
                 station.name
-                for station, sink in zip(backgrounds, background_sinks)
-                if sink.poll() is not None
+                for station, sender in zip(backgrounds, background_senders)
+                if sender.poll() is not None
             ]
-            if background_sender.poll() is not None or failed_sinks:
+            if sink.poll() is not None or failed_senders:
                 raise RuntimeError(
-                    "background traffic process exited during startup; failed sinks: "
-                    + (", ".join(failed_sinks) or "none")
+                    "background traffic process exited during startup; "
+                    "failed senders: " + (", ".join(failed_senders) or "none")
                 )
-            sender_start = read_json_if_present(background_sender_summary)
-            if int(sender_start.get("packets", 0)) <= 0:
-                raise RuntimeError("background sender produced no packets during startup")
+            sender_start_counts = [
+                int(read_json_if_present(path).get("packets", 0))
+                for path in background_sender_paths
+            ]
+            if not all(count > 0 for count in sender_start_counts):
+                failed_senders = [
+                    station.name
+                    for station, count in zip(backgrounds, sender_start_counts)
+                    if count <= 0
+                ]
+                raise RuntimeError(
+                    "background senders produced no packets during startup: "
+                    + ", ".join(failed_senders)
+                )
             receiver_counts = wait_for_background_receivers(
                 background_sink_paths
             )
-            result["background_preflight_receiver_packets"] = {
+            result["background_preflight_sender_packets"] = {
                 station.name: count
-                for station, count in zip(backgrounds, receiver_counts)
+                for station, count in zip(backgrounds, sender_start_counts)
+            }
+            result["background_preflight_receiver_packets"] = {
+                "srv": receiver_counts[0] if receiver_counts else 0
             }
             result["background_preflight_packets_received"] = sum(receiver_counts)
             if not receiver_counts or not all(
                 count > 0 for count in receiver_counts
             ):
                 result["failure_class"] = "background_load_failure"
-                missing_receivers = [
-                    station.name
-                    for station, count in zip(backgrounds, receiver_counts)
-                    if count <= 0
-                ]
                 raise RuntimeError(
-                    "background receiver preflight got no packets at: "
-                    + ", ".join(missing_receivers)
+                    "background server receiver preflight got no packets"
                 )
 
         if shutil.which("tcpdump"):
@@ -699,28 +743,34 @@ def main() -> int:
         result["measurement_exit_status"] = measurement_status
 
         stop_process(traffic)
-        if background_sender is not None:
+        if background_senders:
             background_processes_stayed_running = (
-                background_sender.poll() is None
+                all(sender.poll() is None for sender in background_senders)
                 and all(sink.poll() is None for sink in background_sinks)
             )
-            stop_process(background_sender)
+            for sender in background_senders:
+                stop_process(sender)
             for sink in background_sinks:
                 stop_process(sink)
-            sender_metrics = read_json_if_present(background_sender_summary)
+            sender_metrics = [
+                read_json_if_present(path) for path in background_sender_paths
+            ]
             sink_metrics = [
                 read_json_if_present(path) for path in background_sink_paths
             ]
-            sender_packets = int(sender_metrics.get("packets", 0))
+            sender_packets = sum(
+                int(item.get("packets", 0)) for item in sender_metrics
+            )
             received_packets = sum(
                 int(item.get("packets", 0)) for item in sink_metrics
             )
             result["background_packets_sent"] = sender_packets
-            result["background_payload_bytes_sent"] = int(
-                sender_metrics.get("payload_bytes", 0)
+            result["background_payload_bytes_sent"] = sum(
+                int(item.get("payload_bytes", 0)) for item in sender_metrics
             )
-            actual_background_mbps = float(
-                sender_metrics.get("achieved_mbps", 0.0)
+            actual_background_mbps = sum(
+                float(item.get("achieved_mbps", 0.0))
+                for item in sender_metrics
             )
             result["background_load_actual_mbps"] = actual_background_mbps
             result["background_packets_received"] = received_packets

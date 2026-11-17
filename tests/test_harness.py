@@ -37,6 +37,10 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(PROFILES["baseline_idle"]["background_load_mbps"], 0.0)
         self.assertEqual(PROFILES["baseline_load20"]["background_load_mbps"], 20.0)
         self.assertEqual(
+            PROFILES["baseline_load20"]["background_direction"],
+            "uplink_to_server",
+        )
+        self.assertEqual(
             PROFILES["wmm_disabled_load20"]["background_load_mbps"], 20.0
         )
         self.assertEqual(PROFILES["wmm_disabled_load20"]["wmm_enabled"], 0)
