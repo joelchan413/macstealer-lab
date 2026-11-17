@@ -20,6 +20,7 @@ authorized to test.
 | `record_demo.sh` | Reproducible client-isolation + normal-attack recording sequence |
 | `macstealer_measure.py` | Instrumented wrapper; it does not modify upstream MacStealer |
 | `traffic_generator.py` | Sequence-tagged UDP measurement stream |
+| `background_traffic.py` | Measured UDP sender/sinks for loaded profiles |
 | `single_trial.py` | One clean Mininet-WiFi measurement trial |
 | `run_experiments.py` | Randomized, resumable experiment matrix |
 | `analyze_results.py` | CSV aggregation, Wilson intervals, and PNG figures |
@@ -121,7 +122,7 @@ deauthentication bypass.
 
 ## 5. Understand the automated experiment
 
-The default matrix has five associated-client counts:
+The original completed matrix used five associated-client counts:
 
 ```text
 1, 5, 10, 20, 40
@@ -147,6 +148,30 @@ packets sent during the ten-second post-association observation window count
 toward intercepted volume. This prevents TCP retransmissions and old ARP-queued
 UDP packets from inflating results.
 
+### Follow-up four-profile study
+
+The runner now defaults to a focused follow-up study at `N=5`:
+
+| Profile | Configuration | Expected result |
+|---|---|---|
+| `baseline_idle` | Baseline AP with four idle background stations | High success and interception |
+| `baseline_load20` | Baseline plus 20 Mbit/s aggregate downlink load | High success, potentially lower or more variable volume |
+| `wmm_disabled_load20` | WMM disabled under the same 20 Mbit/s load | Potentially different loss and latency |
+| `vlan_separated` | Victim and attacker pinned to isolated BSS forwarding domains and DHCP subnets | Valid `secure_negative` with no interception |
+
+The two loaded profiles divide a measured 20 Mbit/s offered stream across all
+background stations. They therefore require at least two associated clients.
+The sender and every receiver write JSON counters so the trial is invalid if
+the background stream did not actually run. The offered sender rate must reach
+at least 90% of its 20 Mbit/s target; delivered background rate and delivery
+ratio are recorded separately rather than used as a validity threshold.
+
+The portable VLAN negative control uses two BSSes with the same SSID. The
+victim is pinned to the BSS backed by `10.77.10.0/24`; the attacker is pinned
+to an isolated BSS backed by `10.77.20.0/24`. Both sides must authenticate and
+obtain DHCP independently. This models the forwarding boundary created by
+credential-bound VLANs without depending on hostapd dynamic-VLAN support.
+
 ## 6. Run a small smoke test
 
 Start with one baseline trial:
@@ -170,6 +195,22 @@ valid=True tcp=True udp=<non-zero count> failure=None
 Inspect its `trials/<trial-id>/` directory before scaling up. In particular,
 review `result.json`, `macstealer.log`, `hostapd.log`, `server.pcap`, and
 `attacker.pcap`.
+
+Smoke-test the new study as four trials at `N=5`:
+
+```bash
+sudo python3 run_experiments.py \
+  --macstealer "$MACSTEALER_DIR" \
+  --output-root followup-smoke \
+  --clients 5 \
+  --profiles baseline_idle,baseline_load20,wmm_disabled_load20,vlan_separated \
+  --trials 1 \
+  --trial-timeout 300
+```
+
+The VLAN trial is expected to report `valid=True`, `attack=False`, `tcp=False`,
+`udp=0`, and `failure=secure_negative`. Authentication or DHCP failure is not
+an acceptable mitigation result.
 
 ## 7. Run the pilot matrix
 
@@ -222,6 +263,37 @@ Do not enable `--hwsim-pcap` for the full matrix unless raw over-the-air
 captures are required; those files can be large. Server and attacker pcaps are
 enabled whenever `tcpdump` is installed.
 
+### Run the focused follow-up
+
+Run a five-trial pilot first:
+
+```bash
+sudo python3 run_experiments.py \
+  --macstealer "$MACSTEALER_DIR" \
+  --output-root followup-pilot \
+  --clients 5 \
+  --profiles baseline_idle,baseline_load20,wmm_disabled_load20,vlan_separated \
+  --trials 5 \
+  --seed 20261117 \
+  --trial-timeout 300
+```
+
+After all four cells pass their validity checks, collect 30 trials per cell:
+
+```bash
+sudo python3 run_experiments.py \
+  --macstealer "$MACSTEALER_DIR" \
+  --output-root followup-full \
+  --clients 5 \
+  --profiles baseline_idle,baseline_load20,wmm_disabled_load20,vlan_separated \
+  --trials 30 \
+  --seed 20261117 \
+  --trial-timeout 300
+```
+
+This plans 120 trials. Do not combine these results with the original 600-row
+matrix; analyze them as a separate experiment version.
+
 ## 9. Analyze results
 
 Run the analysis after a pilot or full matrix:
@@ -259,6 +331,7 @@ Failure classes are interpreted as follows:
 | `auth_failure` | Victim or attacker could not authenticate |
 | `dhcp_failure` | Association worked but DHCP did not |
 | `server_failure` | No tagged server packets existed in the observation window |
+| `background_load_failure` | The configured background sender or receivers produced no measured traffic |
 | `hwsim_failure` | Reserved for radio/emulation failures identified during review |
 | `tool_failure` | Measurement wrapper or upstream tool exited unexpectedly |
 

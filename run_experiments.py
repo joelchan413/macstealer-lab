@@ -13,11 +13,11 @@ import sys
 import time
 from pathlib import Path
 
-from lab_common import PROFILES, collect_environment, write_json
+from lab_common import PROFILES, STUDY_PROFILES, collect_environment, write_json
 
 
-DEFAULT_CLIENTS = [1, 5, 10, 20, 40]
-DEFAULT_PROFILES = list(PROFILES)
+DEFAULT_CLIENTS = [5]
+DEFAULT_PROFILES = STUDY_PROFILES
 
 
 def read_result(path: Path):
@@ -104,6 +104,17 @@ def main() -> int:
         parser.error("run_experiments.py must run as root (use sudo)")
     if args.trials < 1:
         parser.error("--trials must be at least 1")
+    if not args.resume:
+        loaded_profiles = [
+            name
+            for name in args.profiles
+            if PROFILES[name].get("background_load_mbps", 0) > 0
+        ]
+        if loaded_profiles and any(count < 2 for count in args.clients):
+            parser.error(
+                "loaded profiles require at least two associated clients "
+                "(one victim plus one background station)"
+            )
 
     lab_dir = Path(__file__).resolve().parent
     single_trial = lab_dir / "single_trial.py"
@@ -246,11 +257,12 @@ def main() -> int:
                     if not trial_result.get("valid_trial"):
                         invalid += 1
                     print(
-                        "  valid={} attack={} tcp={} udp={} failure={}".format(
+                        "  valid={} attack={} tcp={} udp={} bg_mbps={} failure={}".format(
                             trial_result.get("valid_trial"),
                             trial_result.get("attack_success"),
                             trial_result.get("tcp_success"),
                             trial_result.get("udp_packets_intercepted_unique"),
+                            trial_result.get("background_load_actual_mbps"),
                             trial_result.get("failure_class"),
                         )
                     )

@@ -253,10 +253,19 @@ captions are:
 6. Once the attacker reconnected, almost all downstream tagged traffic for the
    victim was delivered to the attacker.
 
-## Working mitigation to test next
+## Follow-up study implemented
 
-The strongest practical negative control for this lab is per-credential VLAN
-separation:
+The harness now includes a focused four-profile follow-up intended to avoid the
+all-positive ceiling in the original matrix:
+
+| Profile | Configuration | Expected result |
+|---|---|---|
+| `baseline_idle` | Baseline with idle background stations | Near-total success and interception |
+| `baseline_load20` | Baseline under measured 20 Mbit/s downlink load | High success with potentially lower or more variable volume |
+| `wmm_disabled_load20` | WMM disabled under the same load | Potentially different loss and latency |
+| `vlan_separated` | Victim and attacker on isolated BSS forwarding domains | No interception |
+
+The strongest negative control models per-credential VLAN separation:
 
 ```text
 VictimPass123   -> VLAN 10 -> victim subnet
@@ -265,11 +274,13 @@ AttackerPass123 -> VLAN 20 -> attacker subnet
 Firewall: VLAN 20 cannot reach VLAN 10
 ```
 
-The server can be reachable independently from both VLANs for preflight tests,
-while traffic addressed to the victim remains confined to VLAN 10. A valid
-mitigation result must show that both credentials work normally, but the
-attacker receives no victim TCP or tagged UDP traffic after spoofing the
-victim's MAC address.
+For portability across Mininet-WiFi and hostapd builds, the automated profile
+uses two BSSes with the same SSID and separate layer-2/IP domains. The victim is
+pinned to the `10.77.10.0/24` BSS and the attacker to `10.77.20.0/24`. This
+tests the relevant forwarding separation, but it is not a same-BSS hostapd
+dynamic-VLAN implementation. Both credentials must work normally and obtain
+independent DHCP leases while victim traffic remains confined to the victim
+domain.
 
 Expected mitigation result:
 
@@ -292,6 +303,9 @@ Another upstream mitigation concept is to remember the credential/security
 association recently used by each MAC address. An AP or controller can delay or
 reject a rapid reconnection when the same MAC is presented with a different
 credential. That requires AP/controller logic rather than a simple MFP switch.
+
+The follow-up pilot and full-run commands are in
+[instructions.md](instructions.md#run-the-focused-follow-up).
 
 ## Limitations
 

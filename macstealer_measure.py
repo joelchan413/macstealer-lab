@@ -46,6 +46,8 @@ def main() -> int:
     parser.add_argument("--events", type=Path, required=True)
     parser.add_argument("--udp-port", type=int, default=5555)
     parser.add_argument("--observation-seconds", type=float, default=10.0)
+    parser.add_argument("--other-bss", action="store_true")
+    parser.add_argument("--fresh-attacker-dhcp", action="store_true")
     parser.add_argument("-d", "--debug", action="count", default=0)
     args = parser.parse_args()
 
@@ -67,7 +69,7 @@ def main() -> int:
         ping=False,
         delay=0,
         debug=args.debug,
-        other_bss=False,
+        other_bss=args.other_bss,
         no_ssid_check=False,
         same_id=False,
         flip_id=False,
@@ -83,6 +85,8 @@ def main() -> int:
             super().__init__(iface, opts)
             self.victim_auth_ok = False
             self.attacker_auth_ok = False
+            self.victim_dhcp_ok = False
+            self.attacker_dhcp_ok = False
             self.dhcp_ok = False
             self.tcp_success = False
             self.tcp_first_ns = None
@@ -91,6 +95,7 @@ def main() -> int:
             self.udp_sequences: set[int] = set()
             self.udp_payload_bytes = 0
             self.udp_first_ns = None
+            self.victim_clientip = None
 
         def emit(self, event: str, **fields):
             record = {
@@ -105,7 +110,7 @@ def main() -> int:
             if not (
                 ms.IP in packet
                 and ms.TCP in packet
-                and packet[ms.IP].dst == self.clientip
+                and packet[ms.IP].dst == self.victim_clientip
                 and packet[ms.IP].src == self.options.server
                 and packet[ms.TCP].dport == self.tcp_src_port
                 and packet[ms.TCP].sport == self.options.port
@@ -163,7 +168,7 @@ def main() -> int:
         def run_measurement(self):
             self.emit("measurement_start")
             self.start()
-            if self.bssid_attacker is not None:
+            if not args.other_bss and self.bssid_attacker is not None:
                 self.set_bssid(self.bssid_attacker)
 
             ms.log(ms.STATUS, "Scanning and connecting as victim...", color="green")
@@ -177,7 +182,8 @@ def main() -> int:
                 self.set_bssid(self.bssid_victim)
 
             self.get_ip_address()
-            self.dhcp_ok = True
+            self.victim_dhcp_ok = True
+            self.victim_clientip = self.clientip
             self.emit("victim_ready", client_ip=self.clientip)
             self.send_tcp_syn()
             self.emit("tcp_syn_sent")
@@ -190,7 +196,23 @@ def main() -> int:
             self.connect(self.netid_attacker, timeout=30)
             self.attacker_auth_ok = True
             self.has_reconnected = True
+            if args.fresh_attacker_dhcp:
+                # The VLAN-separated profile moves the same station MAC into a
+                # different forwarding domain. Discard the victim-side DHCP and
+                # router state so the attacker must prove connectivity in its
+                # own domain rather than reusing the victim lease.
+                self.dhcp_xid = None
+                self.dhcp_offer_frame = False
+                self.time_retrans_dhcp = None
+                self.time_retrans_arp = None
+                self.clientip = None
+                self.routerip = None
+                self.routermac = None
+                self.arp_sock = None
+                self.can_send_traffic = False
             self.get_ip_address()
+            self.attacker_dhcp_ok = True
+            self.dhcp_ok = self.victim_dhcp_ok and self.attacker_dhcp_ok
             self.attacker_ready_ns = time.monotonic_ns()
             self.emit("attacker_ready", client_ip=self.clientip)
 
@@ -216,7 +238,11 @@ def main() -> int:
                 "trial_id": args.trial_id,
                 "victim_auth_ok": self.victim_auth_ok,
                 "attacker_auth_ok": self.attacker_auth_ok,
+                "victim_dhcp_ok": self.victim_dhcp_ok,
+                "attacker_dhcp_ok": self.attacker_dhcp_ok,
                 "dhcp_ok": self.dhcp_ok,
+                "victim_client_ip": self.victim_clientip,
+                "attacker_client_ip": self.clientip if self.attacker_dhcp_ok else None,
                 "tcp_success": self.tcp_success,
                 "tcp_first_intercept_ms": tcp_first_ms,
                 "reconnect_ms": reconnect_ms,

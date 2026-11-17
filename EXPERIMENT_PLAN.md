@@ -106,11 +106,11 @@ background clients) at every `N`.
 | P3 | P1 with MFP required (`ieee80211w=2`) | Tests MFP; default scripted voluntary reconnect is still expected to work |
 | P4 | P1 with WMM disabled (`wmm_enabled=0`) | Tests whether AP queuing/QoS configuration changes timing or volume |
 
-VLAN separation remains a valuable follow-up negative control, but is not part
-of the portable automated matrix because dynamic-VLAN behavior differs across
-hostapd builds and Mininet-WiFi AP backends. If it is added later, first verify
-both VLANs can independently reach the measurement server and treat it as a
-separate experiment version.
+The original matrix deliberately excluded VLAN separation because same-BSS
+dynamic-VLAN behavior differs across hostapd builds and Mininet-WiFi AP
+backends. The follow-up experiment below implements a portable forwarding-
+separation negative control using two pinned BSSes and isolated IP domains. It
+must be treated as a separate experiment version.
 
 Do not combine multiple changes in one profile unless the profile is explicitly
 described as a defense bundle. Record the complete generated hostapd config for
@@ -257,3 +257,47 @@ Do not start the full 600-trial run until:
 Archive the scripts, version metadata, raw JSON/CSV, generated AP configs,
 pcaps, and analysis notebook together. Keep the large pcaps outside version
 control and retain checksums in the dataset manifest.
+
+## 11. Focused follow-up experiment
+
+The completed original matrix reached a ceiling of essentially 100% success
+and interception in every cell. The follow-up therefore compares idle traffic,
+controlled congestion, WMM under congestion, and a forwarding-separation
+negative control.
+
+Use `N=5` for every cell so both loaded profiles have four background traffic
+receivers:
+
+| Profile | Background load | WMM | Forwarding domain | Expected outcome |
+|---|---:|---:|---|---|
+| `baseline_idle` | 0 Mbit/s | On | Same BSS/domain | Near 100% success and interception |
+| `baseline_load20` | 20 Mbit/s | On | Same BSS/domain | High success, potentially lower or more variable volume |
+| `wmm_disabled_load20` | 20 Mbit/s | Off | Same BSS/domain | Potentially different loss and latency |
+| `vlan_separated` | 0 Mbit/s | On | Separate pinned BSS domains | 0% success and interception |
+
+The 20 Mbit/s stream is aggregate downlink traffic from the wired server,
+round-robin across the four background stations. Sender and receiver counters
+must both be non-zero or the trial is an infrastructure failure.
+
+The VLAN profile uses the same SSID on both BSSes. The victim credential is
+pinned to a BSS backed by `10.77.10.0/24`; the attacker credential is pinned to
+an isolated BSS backed by `10.77.20.0/24`. The measurement wrapper discards the
+victim DHCP state and requires a fresh attacker lease. A valid negative must
+therefore satisfy all of the following:
+
+```text
+victim_auth_ok = true
+attacker_auth_ok = true
+victim_dhcp_ok = true
+attacker_dhcp_ok = true
+server_preflight_ok = true
+tcp_success = false
+udp_packets_intercepted_unique = 0
+failure_class = secure_negative
+valid_trial = true
+```
+
+Run five pilot trials per profile (20 total). After all validity checks pass,
+run 30 trials per profile (120 total). Do not merge these rows with the
+original 600-trial dataset because the topology and independent variables are
+different.

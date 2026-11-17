@@ -16,11 +16,17 @@ from pathlib import Path
 from typing import Any
 
 from lab_common import (
+    ATTACKER_PSK,
+    BACKGROUND_PORT,
     PROFILES,
     SERVER_IP,
     SSID,
     TCP_PORT,
     UDP_PORT,
+    VLAN_ATTACKER_IP,
+    VLAN_ATTACKER_SERVER_IP,
+    VLAN_VICTIM_IP,
+    VLAN_VICTIM_SERVER_IP,
     VICTIM_IP,
     VICTIM_PSK,
     collect_environment,
@@ -54,6 +60,16 @@ def parse_server_events(path: Path) -> list[dict[str, Any]]:
         if event.get("sent"):
             events.append(event)
     return events
+
+
+def read_json_if_present(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def wait_for_background_links(stations, timeout: float = 35.0) -> tuple[int, list[str]]:
@@ -90,6 +106,14 @@ def main() -> int:
     if args.clients < 1:
         parser.error("--clients must be at least 1")
 
+    profile = PROFILES[args.profile]
+    background_load_mbps = float(profile.get("background_load_mbps", 0.0))
+    separated = profile.get("network_mode") == "separate_bss_vlan"
+    victim_server_ip = VLAN_VICTIM_SERVER_IP if separated else SERVER_IP
+    victim_ip = VLAN_VICTIM_IP if separated else VICTIM_IP
+    if background_load_mbps > 0 and args.clients < 2:
+        parser.error("loaded profiles require at least two associated clients")
+
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     macstealer_dir = args.macstealer.resolve()
@@ -97,19 +121,38 @@ def main() -> int:
     lab_dir = Path(__file__).resolve().parent
     measure_script = lab_dir / "macstealer_measure.py"
     traffic_script = lab_dir / "traffic_generator.py"
+    background_script = lab_dir / "background_traffic.py"
     client_conf = output / "client.conf"
     psk_file = output / "hostapd.psk"
+    attacker_psk_file = output / "hostapd-attacker.psk"
     measurement_json = output / "measurement.json"
     measurement_events = output / "measurement-events.jsonl"
     server_events = output / "server-events.jsonl"
     result_path = output / "result.json"
 
-    render_client_config(client_conf, args.profile)
-    render_psk_file(psk_file)
-    profile = PROFILES[args.profile]
+    if separated:
+        render_psk_file(psk_file, identities=("victim",))
+        render_psk_file(attacker_psk_file, identities=("attacker",))
+    else:
+        render_client_config(client_conf, args.profile)
+        render_psk_file(psk_file)
     ap_config = hostapd_config_string(args.profile, psk_file)
+    attacker_ap_config = (
+        hostapd_config_string(args.profile, attacker_psk_file)
+        if separated
+        else None
+    )
     (output / "hostapd-effective-settings.txt").write_text(
-        ap_config.replace(",", "\n") + "\n"
+        "[victim-bss]\n"
+        + ap_config.replace(",", "\n")
+        + "\n"
+        + (
+            "\n[attacker-bss]\n"
+            + attacker_ap_config.replace(",", "\n")
+            + "\n"
+            if attacker_ap_config
+            else ""
+        )
     )
     write_json(output / "environment.json", collect_environment(macstealer_dir))
     write_json(
@@ -123,6 +166,14 @@ def main() -> int:
             "udp_rate": args.udp_rate,
             "payload_bytes": args.payload_bytes,
             "observation_seconds": args.observation_seconds,
+            "background_load_mbps": background_load_mbps,
+            "network_mode": profile.get("network_mode", "same_bss"),
+            "victim_server_ip": victim_server_ip,
+            "victim_ip": victim_ip,
+            "attacker_gateway_ip": (
+                VLAN_ATTACKER_SERVER_IP if separated else SERVER_IP
+            ),
+            "attacker_ip": VLAN_ATTACKER_IP if separated else VICTIM_IP,
         },
     )
 
@@ -139,6 +190,16 @@ def main() -> int:
         "udp_rate": args.udp_rate,
         "payload_bytes": args.payload_bytes,
         "observation_seconds": args.observation_seconds,
+        "background_load_target_mbps": background_load_mbps,
+        "background_load_ok": background_load_mbps == 0,
+        "network_mode": profile.get("network_mode", "same_bss"),
+        "vlan_separated": separated,
+        "victim_server_ip": victim_server_ip,
+        "configured_victim_ip": victim_ip,
+        "attacker_gateway_ip": (
+            VLAN_ATTACKER_SERVER_IP if separated else SERVER_IP
+        ),
+        "configured_attacker_ip": VLAN_ATTACKER_IP if separated else VICTIM_IP,
         "valid_trial": False,
         "failure_class": "tool_failure",
         "error": None,
@@ -149,7 +210,11 @@ def main() -> int:
             "hwsim_pcap": str(output / "hwsim.pcap") if args.hwsim_pcap else None,
             "macstealer_log": str(output / "macstealer.log"),
             "hostapd_log": str(output / "hostapd.log"),
+            "hostapd_attacker_log": (
+                str(output / "hostapd-attacker.log") if separated else None
+            ),
             "traffic_generator_log": str(output / "traffic-generator.log"),
+            "background_sender_summary": str(output / "background-sender.json"),
         },
     }
 
@@ -177,6 +242,22 @@ def main() -> int:
             config=ap_config,
             hostapd_flags=f"-t -f {output / 'hostapd.log'}",
         )
+        ap2 = None
+        if separated:
+            ap2 = net.addAccessPoint(
+                "ap2",
+                ssid=SSID,
+                mode="g",
+                channel="1",
+                encrypt="wpa2",
+                passwd=ATTACKER_PSK,
+                ieee80211w=profile["ieee80211w"],
+                client_isolation=bool(profile["ap_isolate"]),
+                failMode="standalone",
+                datapath="user",
+                config=attacker_ap_config,
+                hostapd_flags=f"-t -f {output / 'hostapd-attacker.log'}",
+            )
         lab = net.addStation("lab", wlans=2, ip="0.0.0.0")
         backgrounds = [
             net.addStation(
@@ -185,12 +266,39 @@ def main() -> int:
             )
             for index in range(1, args.clients)
         ]
-        srv = net.addHost("srv", ip=f"{SERVER_IP}/24")
+        srv = net.addHost("srv", ip=f"{victim_server_ip}/24")
+        attacker_gateway = None
+        if separated:
+            attacker_gateway = net.addHost(
+                "atknet", ip=f"{VLAN_ATTACKER_SERVER_IP}/24"
+            )
 
         net.configureWifiNodes()
         net.addLink(srv, ap1)
+        if separated:
+            net.addLink(attacker_gateway, ap2)
         net.build()
         ap1.start([])
+        if separated:
+            ap2.start([])
+            victim_bssid = ap1.cmd(
+                "cat /sys/class/net/ap1-wlan1/address"
+            ).strip()
+            attacker_bssid = ap2.cmd(
+                "cat /sys/class/net/ap2-wlan1/address"
+            ).strip()
+            if not victim_bssid or not attacker_bssid or victim_bssid == attacker_bssid:
+                raise RuntimeError(
+                    "unable to determine two distinct BSSIDs for VLAN profile"
+                )
+            result["victim_bssid"] = victim_bssid
+            result["attacker_bssid"] = attacker_bssid
+            render_client_config(
+                client_conf,
+                args.profile,
+                victim_bssid=victim_bssid,
+                attacker_bssid=attacker_bssid,
+            )
         if not profile["ap_isolate"]:
             # OVS does not normally send a frame back out its ingress wireless
             # port. Hairpin it explicitly so this profile genuinely permits
@@ -214,6 +322,7 @@ def main() -> int:
             mfp_line = (
                 "    ieee80211w=2\n" if profile["ieee80211w"] == 2 else ""
             )
+            bssid_line = f"    bssid={victim_bssid}\n" if separated else ""
             station_conf.write_text(
                 "network={\n"
                 f"    ssid=\"{SSID}\"\n"
@@ -222,6 +331,7 @@ def main() -> int:
                 "    pairwise=CCMP\n"
                 f"    key_mgmt={profile['wpa_key_mgmt']}\n"
                 f"    psk=\"{VICTIM_PSK}\"\n"
+                f"{bssid_line}"
                 f"{mfp_line}"
                 "}\n"
             )
@@ -246,6 +356,20 @@ def main() -> int:
         if missing:
             raise RuntimeError(f"background stations did not associate: {', '.join(missing)}")
 
+        background_prefix = "10.77.10" if separated else "10.77.0"
+        background_ips = []
+        for index, station in enumerate(backgrounds, start=1):
+            station_ip = f"{background_prefix}.{100 + index}"
+            background_ips.append(station_ip)
+            station.cmd(
+                f"ip address replace {station_ip}/24 dev {station.name}-wlan0"
+            )
+            station.cmd(
+                f"ip route replace default via {victim_server_ip} "
+                f"dev {station.name}-wlan0"
+            )
+        result["background_ips"] = background_ips
+
         victim_mac = lab.cmd("cat /sys/class/net/lab-wlan0/address").strip()
         result["victim_mac"] = victim_mac
         srv.cmd("sysctl -w net.ipv4.tcp_synack_retries=7")
@@ -253,6 +377,11 @@ def main() -> int:
         dnsmasq_log = (output / "dnsmasq.log").open("w")
         http_log = (output / "http.log").open("w")
         log_handles.extend([dnsmasq_log, http_log])
+        victim_dhcp_range = (
+            "10.77.10.20,10.77.10.99,255.255.255.0,12h"
+            if separated
+            else "10.77.0.20,10.77.0.99,255.255.255.0,12h"
+        )
         dnsmasq = srv.popen(
             [
                 "dnsmasq",
@@ -261,10 +390,10 @@ def main() -> int:
                 "--interface=srv-eth0",
                 "--port=0",
                 "--dhcp-authoritative",
-                f"--dhcp-host={victim_mac},{VICTIM_IP}",
-                "--dhcp-range=10.77.0.20,10.77.0.250,255.255.255.0,12h",
-                f"--dhcp-option=3,{SERVER_IP}",
-                f"--dhcp-option=6,{SERVER_IP}",
+                f"--dhcp-host={victim_mac},{victim_ip}",
+                f"--dhcp-range={victim_dhcp_range}",
+                f"--dhcp-option=3,{victim_server_ip}",
+                f"--dhcp-option=6,{victim_server_ip}",
                 "--log-dhcp",
             ],
             stdout=dnsmasq_log,
@@ -277,15 +406,113 @@ def main() -> int:
                 "http.server",
                 str(TCP_PORT),
                 "--bind",
-                SERVER_IP,
+                victim_server_ip,
             ],
             stdout=http_log,
             stderr=subprocess.STDOUT,
         )
         processes.extend([dnsmasq, httpd])
+        attacker_dnsmasq = None
+        if separated:
+            attacker_dnsmasq_log = (
+                output / "dnsmasq-attacker.log"
+            ).open("w")
+            log_handles.append(attacker_dnsmasq_log)
+            attacker_dnsmasq = attacker_gateway.popen(
+                [
+                    "dnsmasq",
+                    "--no-daemon",
+                    "--bind-interfaces",
+                    "--interface=atknet-eth0",
+                    "--port=0",
+                    "--dhcp-authoritative",
+                    f"--dhcp-host={victim_mac},{VLAN_ATTACKER_IP}",
+                    "--dhcp-range=10.77.20.20,10.77.20.99,255.255.255.0,12h",
+                    f"--dhcp-option=3,{VLAN_ATTACKER_SERVER_IP}",
+                    f"--dhcp-option=6,{VLAN_ATTACKER_SERVER_IP}",
+                    "--log-dhcp",
+                ],
+                stdout=attacker_dnsmasq_log,
+                stderr=subprocess.STDOUT,
+            )
+            processes.append(attacker_dnsmasq)
         time.sleep(0.5)
-        if dnsmasq.poll() is not None or httpd.poll() is not None:
+        if (
+            dnsmasq.poll() is not None
+            or httpd.poll() is not None
+            or (attacker_dnsmasq is not None and attacker_dnsmasq.poll() is not None)
+        ):
             raise RuntimeError("dnsmasq or the local TCP listener exited during startup")
+
+        background_sender = None
+        background_sinks = []
+        background_sink_paths = []
+        background_sender_summary = output / "background-sender.json"
+        if background_load_mbps > 0:
+            for station, station_ip in zip(backgrounds, background_ips):
+                sink_summary = output / f"{station.name}-background-sink.json"
+                sink_log = (output / f"{station.name}-background-sink.log").open("w")
+                log_handles.append(sink_log)
+                sink = station.popen(
+                    [
+                        "python3",
+                        str(background_script),
+                        "sink",
+                        "--bind",
+                        station_ip,
+                        "--port",
+                        str(BACKGROUND_PORT),
+                        "--duration",
+                        "120",
+                        "--output",
+                        str(sink_summary),
+                    ],
+                    stdout=sink_log,
+                    stderr=subprocess.STDOUT,
+                )
+                processes.append(sink)
+                background_sinks.append(sink)
+                background_sink_paths.append(sink_summary)
+
+            sender_log = (output / "background-sender.log").open("w")
+            log_handles.append(sender_log)
+            sender_command = [
+                "python3",
+                str(background_script),
+                "sender",
+                "--port",
+                str(BACKGROUND_PORT),
+                "--aggregate-mbps",
+                str(background_load_mbps),
+                "--payload-bytes",
+                str(args.payload_bytes),
+                "--duration",
+                "120",
+                "--output",
+                str(background_sender_summary),
+            ]
+            for station_ip in background_ips:
+                sender_command.extend(["--target", station_ip])
+            background_sender = srv.popen(
+                sender_command,
+                stdout=sender_log,
+                stderr=subprocess.STDOUT,
+            )
+            processes.append(background_sender)
+            time.sleep(1.0)
+            failed_sinks = [
+                station.name
+                for station, sink in zip(backgrounds, background_sinks)
+                if sink.poll() is not None
+            ]
+            if background_sender.poll() is not None or failed_sinks:
+                raise RuntimeError(
+                    "background traffic process exited during startup; failed sinks: "
+                    + (", ".join(failed_sinks) or "none")
+                )
+            sender_start = read_json_if_present(background_sender_summary)
+            if int(sender_start.get("packets", 0)) <= 0:
+                raise RuntimeError("background sender produced no packets during startup")
 
         if shutil.which("tcpdump"):
             server_capture = srv.popen(
@@ -345,7 +572,7 @@ def main() -> int:
                 "--trial-id",
                 args.trial_id,
                 "--target",
-                VICTIM_IP,
+                victim_ip,
                 "--port",
                 str(UDP_PORT),
                 "--rate",
@@ -382,7 +609,7 @@ def main() -> int:
             "--config",
             str(client_conf),
             "--server",
-            f"{SERVER_IP}:{TCP_PORT}",
+            f"{victim_server_ip}:{TCP_PORT}",
             "--trial-id",
             args.trial_id,
             "--output",
@@ -393,7 +620,11 @@ def main() -> int:
             str(UDP_PORT),
             "--observation-seconds",
             str(args.observation_seconds),
-        ] + (["-" + ("d" * args.debug)] if args.debug else [])
+        ]
+        if separated:
+            command.extend(["--other-bss", "--fresh-attacker-dhcp"])
+        if args.debug:
+            command.append("-" + ("d" * args.debug))
         measurement = lab.popen(
             command, stdout=macstealer_log, stderr=subprocess.STDOUT
         )
@@ -407,6 +638,65 @@ def main() -> int:
         result["measurement_exit_status"] = measurement_status
 
         stop_process(traffic)
+        if background_sender is not None:
+            background_processes_stayed_running = (
+                background_sender.poll() is None
+                and all(sink.poll() is None for sink in background_sinks)
+            )
+            stop_process(background_sender)
+            for sink in background_sinks:
+                stop_process(sink)
+            sender_metrics = read_json_if_present(background_sender_summary)
+            sink_metrics = [
+                read_json_if_present(path) for path in background_sink_paths
+            ]
+            sender_packets = int(sender_metrics.get("packets", 0))
+            received_packets = sum(
+                int(item.get("packets", 0)) for item in sink_metrics
+            )
+            result["background_packets_sent"] = sender_packets
+            result["background_payload_bytes_sent"] = int(
+                sender_metrics.get("payload_bytes", 0)
+            )
+            actual_background_mbps = float(
+                sender_metrics.get("achieved_mbps", 0.0)
+            )
+            result["background_load_actual_mbps"] = actual_background_mbps
+            result["background_packets_received"] = received_packets
+            received_bytes = sum(
+                int(item.get("payload_bytes", 0)) for item in sink_metrics
+            )
+            result["background_payload_bytes_received"] = received_bytes
+            sink_elapsed = max(
+                (float(item.get("elapsed_seconds", 0.0)) for item in sink_metrics),
+                default=0.0,
+            )
+            result["background_receive_mbps"] = (
+                received_bytes * 8 / sink_elapsed / 1_000_000
+                if sink_elapsed > 0
+                else 0.0
+            )
+            result["background_delivery_ratio"] = (
+                received_packets / sender_packets if sender_packets else None
+            )
+            result["background_load_ok"] = (
+                sender_packets > 0
+                and received_packets > 0
+                and actual_background_mbps >= background_load_mbps * 0.9
+                and background_processes_stayed_running
+            )
+            result["background_processes_stayed_running"] = (
+                background_processes_stayed_running
+            )
+        else:
+            result["background_packets_sent"] = 0
+            result["background_payload_bytes_sent"] = 0
+            result["background_load_actual_mbps"] = 0.0
+            result["background_packets_received"] = 0
+            result["background_payload_bytes_received"] = 0
+            result["background_receive_mbps"] = 0.0
+            result["background_delivery_ratio"] = None
+            result["background_processes_stayed_running"] = True
         if not measurement_json.exists():
             raise RuntimeError("measurement process did not produce measurement.json")
         measurement_data = json.loads(measurement_json.read_text())
@@ -440,6 +730,8 @@ def main() -> int:
             result["failure_class"] = "auth_failure"
         elif not result.get("dhcp_ok"):
             result["failure_class"] = "dhcp_failure"
+        elif not result.get("background_load_ok"):
+            result["failure_class"] = "background_load_failure"
         elif not sent_sequences:
             result["failure_class"] = "server_failure"
         elif measurement_data.get("failure_class"):

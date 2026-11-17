@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 
 from analyze_results import summarize, wilson_interval
-from lab_common import render_client_config
+from background_traffic import metrics
+from lab_common import PROFILES, STUDY_PROFILES, render_client_config
 from run_experiments import read_result
 from traffic_generator import build_payload
 
@@ -21,6 +22,51 @@ class HarnessTests(unittest.TestCase):
             text = path.read_text()
         self.assertEqual(text.count("ieee80211w=2"), 2)
         self.assertEqual(text.count("key_mgmt=WPA-PSK-SHA256"), 2)
+
+    def test_followup_study_profiles_match_design(self):
+        self.assertEqual(
+            STUDY_PROFILES,
+            [
+                "baseline_idle",
+                "baseline_load20",
+                "wmm_disabled_load20",
+                "vlan_separated",
+            ],
+        )
+        self.assertEqual(PROFILES["baseline_idle"]["background_load_mbps"], 0.0)
+        self.assertEqual(PROFILES["baseline_load20"]["background_load_mbps"], 20.0)
+        self.assertEqual(
+            PROFILES["wmm_disabled_load20"]["background_load_mbps"], 20.0
+        )
+        self.assertEqual(PROFILES["wmm_disabled_load20"]["wmm_enabled"], 0)
+        self.assertEqual(
+            PROFILES["vlan_separated"]["network_mode"],
+            "separate_bss_vlan",
+        )
+
+    def test_vlan_client_config_pins_distinct_bssids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "client.conf"
+            render_client_config(
+                path,
+                "vlan_separated",
+                victim_bssid="02:00:00:00:10:01",
+                attacker_bssid="02:00:00:00:20:01",
+            )
+            text = path.read_text()
+        self.assertIn("bssid=02:00:00:00:10:01", text)
+        self.assertIn("bssid=02:00:00:00:20:01", text)
+
+    def test_background_metrics_report_achieved_rate(self):
+        snapshot = metrics(
+            "sender",
+            1_000_000_000,
+            packets=100,
+            payload_bytes=1_000_000,
+            target_mbps=20.0,
+        )
+        self.assertGreater(snapshot["achieved_mbps"], 0)
+        self.assertEqual(snapshot["target_mbps"], 20.0)
 
     def test_wilson_interval_contains_observed_rate(self):
         low, high = wilson_interval(15, 30)
@@ -58,6 +104,29 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(row["valid_trials"], 1)
         self.assertEqual(row["infrastructure_failures"], 1)
         self.assertEqual(row["success_rate"], 1.0)
+
+    def test_summary_counts_valid_secure_negative(self):
+        row = summarize(
+            [
+                {
+                    "profile": "vlan_separated",
+                    "associated_clients": 5,
+                    "valid_trial": True,
+                    "failure_class": "secure_negative",
+                    "attack_success": False,
+                    "tcp_success": False,
+                    "udp_bytes_intercepted": 0,
+                    "interception_ratio": 0.0,
+                    "reconnect_ms": 120,
+                    "background_load_target_mbps": 0.0,
+                    "background_load_actual_mbps": 0.0,
+                }
+            ]
+        )[0]
+        self.assertEqual(row["valid_trials"], 1)
+        self.assertEqual(row["attack_successes"], 0)
+        self.assertEqual(row["secure_negatives"], 1)
+        self.assertEqual(row["success_rate"], 0.0)
 
 
 if __name__ == "__main__":

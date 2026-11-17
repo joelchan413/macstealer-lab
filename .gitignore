@@ -9,5 +9,6 @@ results-full/
 profile-smoke/
 recording-artifacts/
 smoke-*/
+followup-*/
 
 # Keep the curated processed dataset under results/analysis.

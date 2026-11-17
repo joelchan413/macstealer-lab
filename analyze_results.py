@@ -67,7 +67,17 @@ def write_trial_table(path: Path, trials: list[dict[str, Any]]):
         "mfp_mode",
         "wmm_enabled",
         "auth_mode",
+        "network_mode",
+        "vlan_separated",
         "associated_clients",
+        "background_load_target_mbps",
+        "background_load_actual_mbps",
+        "background_packets_sent",
+        "background_packets_received",
+        "background_receive_mbps",
+        "background_delivery_ratio",
+        "background_processes_stayed_running",
+        "background_load_ok",
         "valid_trial",
         "failure_class",
         "attack_success",
@@ -113,6 +123,12 @@ def summarize(trials: list[dict[str, Any]]):
         ratios = [trial.get("interception_ratio") for trial in valid]
         reconnects = [trial.get("reconnect_ms") for trial in valid]
         first_times = [trial.get("udp_first_intercept_ms") for trial in valid]
+        background_rates = [
+            trial.get("background_load_actual_mbps") for trial in valid
+        ]
+        background_receive_rates = [
+            trial.get("background_receive_mbps") for trial in valid
+        ]
         reconnect_q1, reconnect_q3 = quartiles(reconnects)
         ratio_q1, ratio_q3 = quartiles(ratios)
         summaries.append(
@@ -124,6 +140,10 @@ def summarize(trials: list[dict[str, Any]]):
                 "infrastructure_failures": len(group) - len(valid),
                 "attack_successes": success_count,
                 "strict_tcp_successes": len(tcp_successes),
+                "secure_negatives": sum(
+                    trial.get("failure_class") == "secure_negative"
+                    for trial in valid
+                ),
                 "success_rate": success_count / len(valid) if valid else None,
                 "success_ci95_low": low,
                 "success_ci95_high": high,
@@ -136,6 +156,13 @@ def summarize(trials: list[dict[str, Any]]):
                 "interception_ratio_q3": ratio_q3,
                 "udp_bytes_median_unconditional": median(all_volumes),
                 "udp_bytes_median_success_only": median(success_volumes),
+                "background_load_target_mbps": median(
+                    trial.get("background_load_target_mbps") for trial in group
+                ),
+                "background_load_actual_mbps_median": median(background_rates),
+                "background_receive_mbps_median": median(
+                    background_receive_rates
+                ),
             }
         )
     return summaries
