@@ -317,10 +317,19 @@ The `analysis/` directory contains:
 - `trials.csv`: one row per attempted trial;
 - `summary.csv`: one row per AP-profile/client-count cell;
 - `analysis.json`: machine-readable summary and failure counts;
-- `success-rate.png`: success with Wilson 95% confidence intervals;
-- `interception-ratio.png`: median unique UDP interception ratio;
-- `reconnect-latency.png`: median attacker reconnection time; and
-- `failure-classes.png`: infrastructure/tool failure counts when present.
+- `success-rate.png`: categorical profile estimates with Wilson 95% confidence
+  intervals when one client count is tested;
+- `interception-ratio.png`: per-trial values plus the median and IQR;
+- `reconnect-latency.png`: per-trial values plus the median and IQR;
+- `background-throughput.png`: offered versus received load for loaded profiles;
+- `trial-outcomes.png`: positive attacks, secure negatives, and invalid trials;
+  and
+- `failure-classes.png`: infrastructure/tool failure counts, created only when
+  invalid trials are present.
+
+For the focused `N=5` study, profiles are separate x-axis categories so equal
+results do not cover one another. For multi-client-count experiments, series
+are slightly offset around each client-count tick for the same reason.
 
 Report both unconditional intercepted volume, where valid attack failures count
 as zero, and volume conditional on successful TCP interception. The summary CSV

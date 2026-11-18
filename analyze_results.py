@@ -194,94 +194,328 @@ def make_plots(output: Path, trials, summaries):
         return ["matplotlib is not installed; CSV summaries were still generated"]
 
     messages = []
-    profile_order = [name for name in PROFILES if any(s["profile"] == name for s in summaries)]
+    profile_order = [
+        name for name in PROFILES if any(s["profile"] == name for s in summaries)
+    ]
+    profile_labels = {
+        "baseline_idle": "Baseline\nidle",
+        "baseline_load20": "Baseline\n20 Mbit/s",
+        "wmm_disabled_load20": "WMM disabled\n20 Mbit/s",
+        "vlan_separated": "VLAN\nseparated",
+    }
+    labels = [
+        profile_labels.get(profile, profile.replace("_", " "))
+        for profile in profile_order
+    ]
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    client_counts = sorted(
+        {row["associated_clients"] for row in summaries}
+    )
+    single_client_count = len(client_counts) == 1
 
-    fig, axis = plt.subplots(figsize=(9, 5.5))
-    for profile in profile_order:
-        rows = sorted(
-            [row for row in summaries if row["profile"] == profile],
-            key=lambda row: row["associated_clients"],
+    def color_for(index):
+        return colors[index % len(colors)]
+
+    def profile_trials(profile, field):
+        values = []
+        for trial in trials:
+            if trial.get("profile") != profile or not trial.get("valid_trial"):
+                continue
+            value = trial.get(field)
+            if value is not None:
+                values.append(float(value))
+        return values
+
+    def jitter(count, width=0.42):
+        if count <= 1:
+            return [0.0] * count
+        return [
+            -width / 2 + width * index / (count - 1)
+            for index in range(count)
+        ]
+
+    def plot_categorical_distribution(filename, field, ylabel, multiplier=1.0, ylim=None):
+        fig, axis = plt.subplots(figsize=(9, 5.5))
+        for index, profile in enumerate(profile_order):
+            values = [
+                multiplier * value for value in profile_trials(profile, field)
+            ]
+            if not values:
+                continue
+            axis.scatter(
+                [index + offset for offset in jitter(len(values))],
+                values,
+                color=color_for(index),
+                alpha=0.55,
+                s=28,
+                label="Individual trial" if index == 0 else None,
+            )
+            median_value = statistics.median(values)
+            q1, q3 = quartiles(values)
+            axis.errorbar(
+                index,
+                median_value,
+                yerr=[[median_value - q1], [q3 - median_value]],
+                color=color_for(index),
+                marker="D",
+                markersize=7,
+                capsize=6,
+                linewidth=2,
+                label="Median and IQR" if index == 0 else None,
+            )
+            label_below = bool(
+                ylim
+                and median_value
+                > ylim[1] - 0.08 * (ylim[1] - ylim[0])
+            )
+            axis.annotate(
+                f"{median_value:.1f}",
+                (index, median_value),
+                xytext=(0, -14 if label_below else 10),
+                textcoords="offset points",
+                ha="center",
+                va="top" if label_below else "bottom",
+            )
+        axis.set_xticks(range(len(profile_order)))
+        axis.set_xticklabels(labels)
+        axis.set_xlabel("AP profile")
+        axis.set_ylabel(ylabel)
+        if ylim:
+            axis.set_ylim(*ylim)
+        axis.grid(axis="y", alpha=0.3)
+        axis.legend(loc="best")
+        fig.tight_layout()
+        fig.savefig(output / filename, dpi=180)
+        plt.close(fig)
+
+    if single_client_count:
+        rows_by_profile = {
+            row["profile"]: row
+            for row in summaries
+            if row["success_rate"] is not None
+        }
+        fig, axis = plt.subplots(figsize=(9, 5.5))
+        for index, profile in enumerate(profile_order):
+            row = rows_by_profile.get(profile)
+            if not row:
+                continue
+            rate = 100 * row["success_rate"]
+            lower = 100 * (row["success_rate"] - row["success_ci95_low"])
+            upper = 100 * (row["success_ci95_high"] - row["success_rate"])
+            axis.errorbar(
+                index,
+                rate,
+                yerr=[[lower], [upper]],
+                color=color_for(index),
+                marker="o",
+                markersize=8,
+                capsize=6,
+                linewidth=2,
+            )
+            axis.annotate(
+                f"{row['attack_successes']}/{row['valid_trials']}",
+                (index, rate),
+                xytext=(0, -14 if rate > 90 else 10),
+                textcoords="offset points",
+                ha="center",
+                va="top" if rate > 90 else "bottom",
+            )
+        axis.set_xticks(range(len(profile_order)))
+        axis.set_xticklabels(labels)
+        axis.set_xlabel("AP profile")
+        axis.set_ylabel("Attack success: TCP or tagged UDP (%)")
+        axis.set_ylim(-2, 102)
+        axis.grid(axis="y", alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(output / "success-rate.png", dpi=180)
+        plt.close(fig)
+
+        plot_categorical_distribution(
+            "interception-ratio.png",
+            "interception_ratio",
+            "UDP interception ratio (%)",
+            multiplier=100,
+            ylim=(-2, 102),
         )
-        rows = [row for row in rows if row["success_rate"] is not None]
-        if not rows:
-            continue
-        x = [row["associated_clients"] for row in rows]
-        y = [100 * row["success_rate"] for row in rows]
-        lower = [100 * (row["success_rate"] - row["success_ci95_low"]) for row in rows]
-        upper = [100 * (row["success_ci95_high"] - row["success_rate"]) for row in rows]
-        axis.errorbar(x, y, yerr=[lower, upper], marker="o", capsize=4, label=profile)
-    axis.set_xlabel("Associated clients before transition")
-    axis.set_ylabel("Attack success: TCP or tagged UDP (%)")
-    axis.set_ylim(-2, 102)
-    axis.grid(alpha=0.3)
+        plot_categorical_distribution(
+            "reconnect-latency.png",
+            "reconnect_ms",
+            "Attacker reconnect time (ms)",
+        )
+    else:
+        # Offset series slightly so equal values remain visible in the original
+        # multi-client experiment rather than being drawn directly on top of
+        # one another.
+        offsets = jitter(len(profile_order), width=0.36)
+        plot_specs = [
+            (
+                "success-rate.png",
+                "success_rate",
+                "Attack success: TCP or tagged UDP (%)",
+                100,
+                (-2, 102),
+            ),
+            (
+                "interception-ratio.png",
+                "interception_ratio_median",
+                "Median UDP interception ratio (%)",
+                100,
+                (-2, 102),
+            ),
+            (
+                "reconnect-latency.png",
+                "reconnect_ms_median",
+                "Median attacker reconnect time (ms)",
+                1,
+                None,
+            ),
+        ]
+        for filename, field, ylabel, multiplier, ylim in plot_specs:
+            fig, axis = plt.subplots(figsize=(9, 5.5))
+            for index, profile in enumerate(profile_order):
+                rows = sorted(
+                    [
+                        row
+                        for row in summaries
+                        if row["profile"] == profile and row[field] is not None
+                    ],
+                    key=lambda row: row["associated_clients"],
+                )
+                if not rows:
+                    continue
+                x = [row["associated_clients"] + offsets[index] for row in rows]
+                y = [multiplier * row[field] for row in rows]
+                axis.plot(x, y, marker="o", label=profile.replace("_", " "))
+            axis.set_xticks(client_counts)
+            axis.set_xlabel("Associated clients before transition")
+            axis.set_ylabel(ylabel)
+            if ylim:
+                axis.set_ylim(*ylim)
+            axis.grid(alpha=0.3)
+            axis.legend()
+            fig.tight_layout()
+            fig.savefig(output / filename, dpi=180)
+            plt.close(fig)
+
+    loaded_profiles = [
+        profile
+        for profile in profile_order
+        if any(
+            trial.get("profile") == profile
+            and trial.get("valid_trial")
+            and trial.get("background_load_target_mbps", 0) > 0
+            and trial.get("background_load_actual_mbps") is not None
+            and trial.get("background_receive_mbps") is not None
+            for trial in trials
+        )
+    ]
+    throughput_path = output / "background-throughput.png"
+    if loaded_profiles:
+        fig, axis = plt.subplots(figsize=(8, 5.2))
+        positions = list(range(len(loaded_profiles)))
+        offered = [
+            statistics.median(
+                profile_trials(profile, "background_load_actual_mbps")
+            )
+            for profile in loaded_profiles
+        ]
+        received = [
+            statistics.median(profile_trials(profile, "background_receive_mbps"))
+            for profile in loaded_profiles
+        ]
+        width = 0.34
+        axis.bar(
+            [position - width / 2 for position in positions],
+            offered,
+            width,
+            label="Offered",
+        )
+        axis.bar(
+            [position + width / 2 for position in positions],
+            received,
+            width,
+            label="Received",
+        )
+        axis.set_xticks(positions)
+        axis.set_xticklabels(
+            [
+                profile_labels.get(profile, profile.replace("_", " "))
+                for profile in loaded_profiles
+            ]
+        )
+        axis.set_xlabel("Loaded AP profile")
+        axis.set_ylabel("Background traffic (Mbit/s)")
+        axis.grid(axis="y", alpha=0.3)
+        axis.legend()
+        fig.tight_layout()
+        fig.savefig(throughput_path, dpi=180)
+        plt.close(fig)
+    else:
+        throughput_path.unlink(missing_ok=True)
+
+    outcome_counts = {
+        "Attack succeeded": [
+            sum(
+                trial.get("profile") == profile
+                and trial.get("valid_trial")
+                and bool(trial.get("attack_success"))
+                for trial in trials
+            )
+            for profile in profile_order
+        ],
+        "Secure negative": [
+            sum(
+                trial.get("profile") == profile
+                and trial.get("valid_trial")
+                and not bool(trial.get("attack_success"))
+                for trial in trials
+            )
+            for profile in profile_order
+        ],
+        "Invalid": [
+            sum(
+                trial.get("profile") == profile
+                and not trial.get("valid_trial")
+                for trial in trials
+            )
+            for profile in profile_order
+        ],
+    }
+    fig, axis = plt.subplots(figsize=(9, 5.5))
+    bottoms = [0] * len(profile_order)
+    for outcome, counts in outcome_counts.items():
+        axis.bar(range(len(profile_order)), counts, bottom=bottoms, label=outcome)
+        bottoms = [bottom + count for bottom, count in zip(bottoms, counts)]
+    axis.set_xticks(range(len(profile_order)))
+    axis.set_xticklabels(labels)
+    axis.set_xlabel("AP profile")
+    axis.set_ylabel("Trial count")
+    axis.set_title("Trial outcomes")
     axis.legend()
     fig.tight_layout()
-    fig.savefig(output / "success-rate.png", dpi=180)
-    plt.close(fig)
-
-    fig, axis = plt.subplots(figsize=(9, 5.5))
-    for profile in profile_order:
-        rows = sorted(
-            [row for row in summaries if row["profile"] == profile],
-            key=lambda row: row["associated_clients"],
-        )
-        rows = [row for row in rows if row["interception_ratio_median"] is not None]
-        if not rows:
-            continue
-        axis.plot(
-            [row["associated_clients"] for row in rows],
-            [100 * row["interception_ratio_median"] for row in rows],
-            marker="o",
-            label=profile,
-        )
-    axis.set_xlabel("Associated clients before transition")
-    axis.set_ylabel("Median UDP interception ratio (%)")
-    axis.set_ylim(-2, 102)
-    axis.grid(alpha=0.3)
-    axis.legend()
-    fig.tight_layout()
-    fig.savefig(output / "interception-ratio.png", dpi=180)
-    plt.close(fig)
-
-    fig, axis = plt.subplots(figsize=(9, 5.5))
-    for profile in profile_order:
-        rows = sorted(
-            [row for row in summaries if row["profile"] == profile],
-            key=lambda row: row["associated_clients"],
-        )
-        rows = [row for row in rows if row["reconnect_ms_median"] is not None]
-        if not rows:
-            continue
-        axis.plot(
-            [row["associated_clients"] for row in rows],
-            [row["reconnect_ms_median"] for row in rows],
-            marker="o",
-            label=profile,
-        )
-    axis.set_xlabel("Associated clients before transition")
-    axis.set_ylabel("Median attacker reconnect time (ms)")
-    axis.grid(alpha=0.3)
-    axis.legend()
-    fig.tight_layout()
-    fig.savefig(output / "reconnect-latency.png", dpi=180)
+    fig.savefig(output / "trial-outcomes.png", dpi=180)
     plt.close(fig)
 
     failure_counts = Counter(
-        trial.get("failure_class") or "valid_positive"
+        trial.get("failure_class") or "unclassified"
         for trial in trials
-        if not trial.get("valid_trial") or trial.get("failure_class")
+        if not trial.get("valid_trial")
     )
+    failure_path = output / "failure-classes.png"
     if failure_counts:
         fig, axis = plt.subplots(figsize=(9, 5.5))
-        labels = list(failure_counts)
-        axis.bar(labels, [failure_counts[label] for label in labels])
-        axis.set_ylabel("Trial count")
-        axis.set_title("Failure classifications")
+        failure_labels = list(failure_counts)
+        axis.bar(failure_labels, [failure_counts[label] for label in failure_labels])
+        axis.set_ylabel("Invalid trial count")
+        axis.set_title("Infrastructure failure classifications")
         axis.tick_params(axis="x", rotation=25)
         fig.tight_layout()
-        fig.savefig(output / "failure-classes.png", dpi=180)
+        fig.savefig(failure_path, dpi=180)
         plt.close(fig)
-    messages.append("generated PNG plots")
+    else:
+        failure_path.unlink(missing_ok=True)
+
+    messages.append("generated non-overlapping categorical PNG plots")
     return messages
 
 
