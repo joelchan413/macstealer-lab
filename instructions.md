@@ -317,8 +317,8 @@ The `analysis/` directory contains:
 - `trials.csv`: one row per attempted trial;
 - `summary.csv`: one row per AP-profile/client-count cell;
 - `analysis.json`: machine-readable summary and failure counts;
-- `success-rate.png`: categorical profile estimates with Wilson 95% confidence
-  intervals when one client count is tested;
+- `success-rate.png`: observed profile success rates with successful/valid
+  trial-count labels and no confidence-interval lines;
 - `interception-ratio.png`: per-trial values plus the median and IQR;
 - `reconnect-latency.png`: per-trial values plus the median and IQR;
 - `background-throughput.png`: offered versus received load for loaded profiles;

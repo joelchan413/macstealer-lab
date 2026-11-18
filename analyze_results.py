@@ -300,17 +300,12 @@ def make_plots(output: Path, trials, summaries):
             if not row:
                 continue
             rate = 100 * row["success_rate"]
-            lower = 100 * (row["success_rate"] - row["success_ci95_low"])
-            upper = 100 * (row["success_ci95_high"] - row["success_rate"])
-            axis.errorbar(
+            axis.scatter(
                 index,
                 rate,
-                yerr=[[lower], [upper]],
                 color=color_for(index),
                 marker="o",
-                markersize=8,
-                capsize=6,
-                linewidth=2,
+                s=80,
             )
             axis.annotate(
                 f"{row['attack_successes']}/{row['valid_trials']}",
