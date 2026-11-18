@@ -1,0 +1,10 @@
+{
+  "euid": 0,
+  "hostapd_version": "unavailable: hostapd v2.12-devel\nUser space daemon for IEEE 802.11 AP management,\nIEEE 802.1X/WPA/WPA2/EAP/RADIUS Authenticator\nCopyright (c) 2002-2024, Jouni Malinen <j@w1.fi> and contributors",
+  "iw_version": "iw version 6.17",
+  "kernel": "5.15.0-139-generic",
+  "macstealer_commit": "83851791bc2657bd9f2f384d6b739956ab2c3ea8",
+  "mininet_version": "2.7",
+  "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.29",
+  "python": "3.8.10"
+}

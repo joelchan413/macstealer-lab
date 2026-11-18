@@ -1,0 +1,750 @@
+{
+  "clients": [
+    5
+  ],
+  "created_utc": "2026-11-18T00:51:37Z",
+  "environment": {
+    "euid": 0,
+    "hostapd_version": "unavailable: hostapd v2.12-devel\nUser space daemon for IEEE 802.11 AP management,\nIEEE 802.1X/WPA/WPA2/EAP/RADIUS Authenticator\nCopyright (c) 2002-2024, Jouni Malinen <j@w1.fi> and contributors",
+    "iw_version": "iw version 6.17",
+    "kernel": "5.15.0-139-generic",
+    "macstealer_commit": "83851791bc2657bd9f2f384d6b739956ab2c3ea8",
+    "mininet_version": "2.7",
+    "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.29",
+    "python": "3.8.10"
+  },
+  "observation_seconds": 10.0,
+  "payload_bytes": 1200,
+  "plan": [
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 7,
+      "trial_id": "baseline_idle-n005-r007"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 2,
+      "trial_id": "baseline_idle-n005-r002"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 23,
+      "trial_id": "baseline_idle-n005-r023"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 22,
+      "trial_id": "baseline_idle-n005-r022"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 27,
+      "trial_id": "baseline_idle-n005-r027"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 28,
+      "trial_id": "baseline_idle-n005-r028"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 13,
+      "trial_id": "baseline_idle-n005-r013"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 21,
+      "trial_id": "baseline_idle-n005-r021"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 25,
+      "trial_id": "baseline_idle-n005-r025"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 6,
+      "trial_id": "baseline_idle-n005-r006"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 3,
+      "trial_id": "baseline_idle-n005-r003"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 17,
+      "trial_id": "baseline_idle-n005-r017"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 12,
+      "trial_id": "baseline_idle-n005-r012"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 11,
+      "trial_id": "baseline_idle-n005-r011"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 9,
+      "trial_id": "baseline_idle-n005-r009"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 20,
+      "trial_id": "baseline_idle-n005-r020"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 5,
+      "trial_id": "baseline_idle-n005-r005"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 24,
+      "trial_id": "baseline_idle-n005-r024"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 15,
+      "trial_id": "baseline_idle-n005-r015"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 29,
+      "trial_id": "baseline_idle-n005-r029"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 10,
+      "trial_id": "baseline_idle-n005-r010"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 16,
+      "trial_id": "baseline_idle-n005-r016"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 18,
+      "trial_id": "baseline_idle-n005-r018"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 30,
+      "trial_id": "baseline_idle-n005-r030"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 8,
+      "trial_id": "baseline_idle-n005-r008"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 26,
+      "trial_id": "baseline_idle-n005-r026"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 19,
+      "trial_id": "baseline_idle-n005-r019"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 14,
+      "trial_id": "baseline_idle-n005-r014"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 4,
+      "trial_id": "baseline_idle-n005-r004"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_idle",
+      "repetition": 1,
+      "trial_id": "baseline_idle-n005-r001"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 6,
+      "trial_id": "baseline_load20-n005-r006"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 15,
+      "trial_id": "baseline_load20-n005-r015"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 20,
+      "trial_id": "baseline_load20-n005-r020"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 28,
+      "trial_id": "baseline_load20-n005-r028"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 12,
+      "trial_id": "baseline_load20-n005-r012"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 1,
+      "trial_id": "baseline_load20-n005-r001"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 18,
+      "trial_id": "baseline_load20-n005-r018"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 19,
+      "trial_id": "baseline_load20-n005-r019"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 27,
+      "trial_id": "baseline_load20-n005-r027"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 30,
+      "trial_id": "baseline_load20-n005-r030"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 2,
+      "trial_id": "baseline_load20-n005-r002"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 10,
+      "trial_id": "baseline_load20-n005-r010"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 21,
+      "trial_id": "baseline_load20-n005-r021"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 9,
+      "trial_id": "baseline_load20-n005-r009"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 17,
+      "trial_id": "baseline_load20-n005-r017"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 25,
+      "trial_id": "baseline_load20-n005-r025"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 22,
+      "trial_id": "baseline_load20-n005-r022"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 8,
+      "trial_id": "baseline_load20-n005-r008"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 16,
+      "trial_id": "baseline_load20-n005-r016"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 3,
+      "trial_id": "baseline_load20-n005-r003"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 4,
+      "trial_id": "baseline_load20-n005-r004"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 5,
+      "trial_id": "baseline_load20-n005-r005"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 24,
+      "trial_id": "baseline_load20-n005-r024"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 11,
+      "trial_id": "baseline_load20-n005-r011"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 7,
+      "trial_id": "baseline_load20-n005-r007"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 14,
+      "trial_id": "baseline_load20-n005-r014"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 23,
+      "trial_id": "baseline_load20-n005-r023"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 29,
+      "trial_id": "baseline_load20-n005-r029"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 13,
+      "trial_id": "baseline_load20-n005-r013"
+    },
+    {
+      "clients": 5,
+      "profile": "baseline_load20",
+      "repetition": 26,
+      "trial_id": "baseline_load20-n005-r026"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 20,
+      "trial_id": "wmm_disabled_load20-n005-r020"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 5,
+      "trial_id": "wmm_disabled_load20-n005-r005"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 3,
+      "trial_id": "wmm_disabled_load20-n005-r003"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 11,
+      "trial_id": "wmm_disabled_load20-n005-r011"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 27,
+      "trial_id": "wmm_disabled_load20-n005-r027"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 14,
+      "trial_id": "wmm_disabled_load20-n005-r014"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 4,
+      "trial_id": "wmm_disabled_load20-n005-r004"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 8,
+      "trial_id": "wmm_disabled_load20-n005-r008"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 29,
+      "trial_id": "wmm_disabled_load20-n005-r029"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 25,
+      "trial_id": "wmm_disabled_load20-n005-r025"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 26,
+      "trial_id": "wmm_disabled_load20-n005-r026"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 18,
+      "trial_id": "wmm_disabled_load20-n005-r018"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 13,
+      "trial_id": "wmm_disabled_load20-n005-r013"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 1,
+      "trial_id": "wmm_disabled_load20-n005-r001"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 24,
+      "trial_id": "wmm_disabled_load20-n005-r024"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 9,
+      "trial_id": "wmm_disabled_load20-n005-r009"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 19,
+      "trial_id": "wmm_disabled_load20-n005-r019"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 28,
+      "trial_id": "wmm_disabled_load20-n005-r028"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 16,
+      "trial_id": "wmm_disabled_load20-n005-r016"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 12,
+      "trial_id": "wmm_disabled_load20-n005-r012"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 17,
+      "trial_id": "wmm_disabled_load20-n005-r017"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 2,
+      "trial_id": "wmm_disabled_load20-n005-r002"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 7,
+      "trial_id": "wmm_disabled_load20-n005-r007"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 15,
+      "trial_id": "wmm_disabled_load20-n005-r015"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 10,
+      "trial_id": "wmm_disabled_load20-n005-r010"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 30,
+      "trial_id": "wmm_disabled_load20-n005-r030"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 23,
+      "trial_id": "wmm_disabled_load20-n005-r023"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 6,
+      "trial_id": "wmm_disabled_load20-n005-r006"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 22,
+      "trial_id": "wmm_disabled_load20-n005-r022"
+    },
+    {
+      "clients": 5,
+      "profile": "wmm_disabled_load20",
+      "repetition": 21,
+      "trial_id": "wmm_disabled_load20-n005-r021"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 6,
+      "trial_id": "vlan_separated-n005-r006"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 9,
+      "trial_id": "vlan_separated-n005-r009"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 8,
+      "trial_id": "vlan_separated-n005-r008"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 5,
+      "trial_id": "vlan_separated-n005-r005"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 27,
+      "trial_id": "vlan_separated-n005-r027"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 29,
+      "trial_id": "vlan_separated-n005-r029"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 4,
+      "trial_id": "vlan_separated-n005-r004"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 3,
+      "trial_id": "vlan_separated-n005-r003"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 12,
+      "trial_id": "vlan_separated-n005-r012"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 28,
+      "trial_id": "vlan_separated-n005-r028"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 13,
+      "trial_id": "vlan_separated-n005-r013"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 23,
+      "trial_id": "vlan_separated-n005-r023"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 22,
+      "trial_id": "vlan_separated-n005-r022"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 25,
+      "trial_id": "vlan_separated-n005-r025"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 20,
+      "trial_id": "vlan_separated-n005-r020"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 16,
+      "trial_id": "vlan_separated-n005-r016"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 1,
+      "trial_id": "vlan_separated-n005-r001"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 17,
+      "trial_id": "vlan_separated-n005-r017"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 24,
+      "trial_id": "vlan_separated-n005-r024"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 18,
+      "trial_id": "vlan_separated-n005-r018"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 30,
+      "trial_id": "vlan_separated-n005-r030"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 7,
+      "trial_id": "vlan_separated-n005-r007"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 2,
+      "trial_id": "vlan_separated-n005-r002"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 14,
+      "trial_id": "vlan_separated-n005-r014"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 10,
+      "trial_id": "vlan_separated-n005-r010"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 26,
+      "trial_id": "vlan_separated-n005-r026"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 19,
+      "trial_id": "vlan_separated-n005-r019"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 11,
+      "trial_id": "vlan_separated-n005-r011"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 15,
+      "trial_id": "vlan_separated-n005-r015"
+    },
+    {
+      "clients": 5,
+      "profile": "vlan_separated",
+      "repetition": 21,
+      "trial_id": "vlan_separated-n005-r021"
+    }
+  ],
+  "profiles": [
+    "baseline_idle",
+    "baseline_load20",
+    "wmm_disabled_load20",
+    "vlan_separated"
+  ],
+  "seed": 20261119,
+  "trial_timeout_seconds": 300.0,
+  "trials_per_cell": 30,
+  "udp_rate": 100.0
+}
