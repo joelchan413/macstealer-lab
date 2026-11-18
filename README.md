@@ -1,8 +1,10 @@
 # MacStealer Mininet-WiFi Lab: Overview
 
 Setup and operating instructions are in [instructions.md](instructions.md).
-The complete dataset is under
-[results/analysis](results/analysis/README.md).
+The processed datasets are under
+[results/analysis](results/analysis/README.md) for the original 600-trial
+matrix and [results/followup](results/followup/README.md) for the focused
+120-trial follow-up.
 
 ## Executive summary
 
@@ -21,6 +23,12 @@ The work had two parts:
 The final experiment contained 600 valid trials. The attack succeeded in all
 600 trials, including all 600 strict TCP checks. It intercepted 599,921 of
 599,987 tagged UDP packets, an aggregate interception ratio of 99.989%.
+
+A subsequent 120-trial study tested idle operation, measured 20 Mbit/s uplink
+load with WMM enabled or disabled, and forwarding separation. The attack
+succeeded in all 90 same-domain trials and failed in all 30 separated-domain
+trials. This provided a repeatable negative control and demonstrated that
+credential-bound forwarding separation mitigated the tested attack path.
 
 ## What MacStealer demonstrates
 
@@ -226,13 +234,11 @@ congested radio network.
 
 ### Figure interpretation
 
-The success-rate and interception-ratio graphs contain four series, but all
-four overlap. The last series drawn visually covers the others. Suitable
-captions are:
+The regenerated graphs offset equal profile series slightly around each client
+count so all four remain visible. Suitable captions are:
 
-> All four AP-profile curves overlap at 100% observed attack success. Each
-> point represents 30 valid trials; error bars are Wilson 95% confidence
-> intervals.
+> All four original AP profiles observed 30 successes in 30 valid trials at
+> every tested client count. Series are offset slightly for visibility.
 
 > Median UDP interception was 100% in every cell. Across all raw trials,
 > 599,921 of 599,987 tagged packets were intercepted (99.989%).
@@ -253,17 +259,44 @@ captions are:
 6. Once the attacker reconnected, almost all downstream tagged traffic for the
    victim was delivered to the attacker.
 
-## Follow-up study implemented
+## Focused follow-up results
 
-The harness now includes a focused four-profile follow-up intended to avoid the
-all-positive ceiling in the original matrix:
+The completed follow-up fixed the associated-client count at five and ran 30
+trials for each of four profiles, producing 120/120 valid trials with no
+infrastructure failures. The two loaded profiles divided a measured 20 Mbit/s
+uplink stream across four background stations, with the wired server as the
+receiver.
 
-| Profile | Configuration | Expected result |
-|---|---|---|
-| `baseline_idle` | Baseline with idle background stations | Near-total success and interception |
-| `baseline_load20` | Baseline under measured 20 Mbit/s aggregate uplink load | High success with potentially lower or more variable volume |
-| `wmm_disabled_load20` | WMM disabled under the same load | Potentially different loss and latency |
-| `vlan_separated` | Victim and attacker on isolated BSS forwarding domains | No interception |
+| Profile | Valid | Attack success | Median UDP interception | Median reconnect | Median offered/received load |
+|---|---:|---:|---:|---:|---:|
+| `baseline_idle` | 30/30 | 30/30 | 100% | 81.82 ms | — |
+| `baseline_load20` | 30/30 | 30/30 | 100% | 94.46 ms | 20.002 / 19.672 Mbit/s |
+| `wmm_disabled_load20` | 30/30 | 30/30 | 100% | 99.71 ms | 20.001 / 19.674 Mbit/s |
+| `vlan_separated` | 30/30 | 0/30 | 0% | 106.98 ms | — |
+
+Across the three vulnerable same-domain profiles, the attack succeeded in all
+90 trials and intercepted 89,974 of 89,988 tagged packets (99.984%). The
+20 Mbit/s load increased median reconnect time relative to the idle profile,
+but did not reduce observed success or median intercepted volume. Disabling
+WMM under the same load produced a 5.25 ms higher median than loaded baseline;
+the overlapping trial distributions mean this should remain a descriptive
+observation rather than a causal claim.
+
+The separated profile produced 30 valid secure negatives: normal victim and
+attacker authentication completed, but none of the 29,994 tagged victim
+packets reached the attacker.
+
+![Follow-up attack success](results/followup/analysis/success-rate.png)
+
+![Follow-up UDP interception](results/followup/analysis/interception-ratio.png)
+
+![Follow-up reconnect latency](results/followup/analysis/reconnect-latency.png)
+
+![Measured background throughput](results/followup/analysis/background-throughput.png)
+
+![Follow-up trial outcomes](results/followup/analysis/trial-outcomes.png)
+
+### Forwarding-separation negative control
 
 The strongest negative control models per-credential VLAN separation:
 
@@ -282,7 +315,7 @@ dynamic-VLAN implementation. Both credentials must work normally and obtain
 independent DHCP leases while victim traffic remains confined to the victim
 domain.
 
-Expected mitigation result:
+The observed result in all 30 separated trials was:
 
 ```text
 valid_trial: true
@@ -304,19 +337,24 @@ association recently used by each MAC address. An AP or controller can delay or
 reject a rapid reconnection when the same MAC is presented with a different
 credential. That requires AP/controller logic rather than a simple MFP switch.
 
-The follow-up pilot and full-run commands are in
+The follow-up commands and validity criteria are in
 [instructions.md](instructions.md#run-the-focused-follow-up).
 
 ## Limitations
 
 - `mac80211_hwsim` is deterministic and does not reproduce real interference,
   fading, hidden nodes, or hardware/firmware behavior.
-- Background clients were idle, so the study tests client count but not
-  increasing channel load.
-- All profiles achieved a ceiling result, preventing meaningful comparison of
-  success probability or volume between them.
+- Background clients were idle in the original matrix. The follow-up added
+  controlled uplink load, but did not evaluate loaded downlink traffic.
+- All vulnerable profiles achieved a ceiling success result. This limits
+  comparisons among those profiles even though the separated negative control
+  produced a distinct outcome.
+- The portable separated profile used two pinned BSSes and IP domains rather
+  than a same-BSS hostapd dynamic-VLAN deployment.
 - AP profiles were blocked rather than fully interleaved, so timing differences
   may include block/order effects.
+- No inferential hypothesis test was preregistered for reconnect-time
+  differences; reported medians and quartiles are descriptive.
 - The byte metric counts tagged UDP payload, not Wi-Fi framing overhead.
 - Results apply to the tested hostapd, kernel, Mininet-WiFi, and MacStealer
   versions.

@@ -12,9 +12,12 @@ Mininet-WiFi matrix:
 - `analysis.json`: machine-readable cell summaries and quality-control totals.
 - `summary.csv`: one row for each of the 20 profile/client-count cells.
 - `trials.csv`: one row for each of the 600 valid trials.
-- `success-rate.png`: observed attack success with Wilson 95% intervals.
+- `success-rate.png`: observed attack success with slightly offset profile
+  series so equal values remain visible.
 - `interception-ratio.png`: median tagged UDP interception ratio.
 - `reconnect-latency.png`: median attacker reconnection time.
+- `trial-outcomes.png`: valid positive, valid secure-negative, and invalid
+  trial counts by profile.
 
 Raw per-trial directories, logs, and packet captures are not included in this
 repository. They remain part of the original experiment archive because they
@@ -37,6 +40,6 @@ are substantially larger than the processed dataset.
 - Aggregate interception ratio: 99.989%
 - Tagged UDP payload intercepted: 719,905,200 bytes
 
-The plotted AP-profile series overlap at 100% observed success and 100% median
-interception. This is expected from the underlying rows; it is not a missing
-series or plotting error.
+Every AP-profile series reached 100% observed success and 100% median
+interception. The regenerated figures offset equal series slightly around each
+client-count tick so all four remain visible.
